@@ -1,7 +1,6 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
 @import "tailwindcss";
 
-/* ─── Tailwind v4 Theme ─── */
 @theme {
   --color-bg-primary: #0f1117;
   --color-bg-secondary: #161922;
@@ -55,7 +54,6 @@
   100% { background-position: 200% 0; }
 }
 
-/* ─── Base Styles ─── */
 body {
   @apply font-sans text-text-primary bg-bg-primary antialiased;
   min-height: 100vh;
@@ -65,7 +63,6 @@ body {
     var(--color-bg-primary);
 }
 
-/* ─── Scrollbar ─── */
 .custom-scroll::-webkit-scrollbar {
   width: 4px;
 }
