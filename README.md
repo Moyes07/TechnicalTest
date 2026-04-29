@@ -19,7 +19,7 @@ npm run start:dev
 npm run build && npm run start:prod
 ```
 
-The API will be available at **http://localhost:3000/api**
+The API will be available at **http://localhost:3000/**
 
 
 ## API Endpoints
