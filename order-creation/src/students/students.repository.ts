@@ -5,26 +5,26 @@ import { Student } from './student.entity';
 export class StudentsRepository {
   private readonly store = new Map<string, Student>([
     [
-      'student-1',
+      'student1',
       {
-        id: 'student-1',
+        id: 'student1',
         name: 'Sam John',
         allergens: ['nuts'],
-        parentId: 'parent-1',
+        parentId: 'parent1',
       },
     ],
   ]);
 
-  findAll(): Student[] {
-    return Array.from(this.store.values());
+  async findAll(): Promise<Student[]> {
+    return Promise.resolve(Array.from(this.store.values()));
   }
 
-  findById(id: string): Student | undefined {
-    return this.store.get(id);
+  async findById(id: string): Promise<Student | undefined> {
+    return Promise.resolve(this.store.get(id));
   }
 
-  save(student: Student): Student {
+  async save(student: Student): Promise<Student> {
     this.store.set(student.id, { ...student });
-    return this.store.get(student.id)!;
+    return Promise.resolve(this.store.get(student.id)!);
   }
 }

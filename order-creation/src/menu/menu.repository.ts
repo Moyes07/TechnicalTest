@@ -5,9 +5,9 @@ import { MenuItem } from './menu-item.entity';
 export class MenuRepository {
   private readonly store = new Map<string, MenuItem>([
     [
-      'item-1',
+      'item1',
       {
-        id: 'item-1',
+        id: 'item1',
         name: 'Peanut Butter Cookie',
         price: 1.5,
         allergens: ['nuts', 'gluten'],
@@ -15,9 +15,9 @@ export class MenuRepository {
       },
     ],
     [
-      'item-2',
+      'item2',
       {
-        id: 'item-2',
+        id: 'item2',
         name: 'Fresh Apple Juice',
         price: 2.0,
         allergens: [],
@@ -25,9 +25,9 @@ export class MenuRepository {
       },
     ],
     [
-      'item-3',
+      'item3',
       {
-        id: 'item-3',
+        id: 'item3',
         name: 'Cheese Sandwich',
         price: 3.5,
         allergens: ['gluten', 'dairy'],
@@ -35,27 +35,27 @@ export class MenuRepository {
       },
     ],
     [
-      'item-4',
+      'item4',
       {
-        id: 'item-4',
+        id: 'item4',
         name: 'Seasonal Soup',
         price: 4.0,
         allergens: [],
-        available: false,   // Seeded as unavailable to demonstrate that check
+        available: false,
       },
     ],
   ]);
 
-  findAll(): MenuItem[] {
-    return Array.from(this.store.values());
+  async findAll(): Promise<MenuItem[]> {
+    return Promise.resolve(Array.from(this.store.values()));
   }
 
-  findById(id: string): MenuItem | undefined {
-    return this.store.get(id);
+  async findById(id: string): Promise<MenuItem | undefined> {
+    return Promise.resolve(this.store.get(id));
   }
 
-  save(item: MenuItem): MenuItem {
+  async save(item: MenuItem): Promise<MenuItem> {
     this.store.set(item.id, { ...item });
-    return this.store.get(item.id)!;
+    return Promise.resolve(this.store.get(item.id)!);
   }
 }

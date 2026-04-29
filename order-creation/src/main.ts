@@ -6,26 +6,30 @@ import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
-  // Enable CORS for the frontend
+  const rawCorsOrigins =
+    process.env.CORS_ORIGINS ??
+    'http://localhost:5173,http://localhost:5174,http://localhost:3001';
+  const corsOrigins = rawCorsOrigins
+    .split(',')
+    .map((origin) => origin.trim())
+    .filter(Boolean);
   app.enableCors({
-    origin: ['http://localhost:3001', 'http://localhost:5173', 'http://localhost:5174'],
+    origin: corsOrigins,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
     allowedHeaders: ['Content-Type', 'Authorization'],
   });
 
-  // Validate all incoming request DTOs automatically
   app.useGlobalPipes(
     new ValidationPipe({
-      whitelist: true, // Strip unknown properties
+      whitelist: true,
       forbidNonWhitelisted: true,
-      transform: true, // Auto-transform payloads to DTO instances
+      transform: true,
       transformOptions: {
         enableImplicitConversion: true,
       },
     }),
   );
 
-  // Global exception filter for consistent error shape
   app.useGlobalFilters(new HttpExceptionFilter());
 
   const port = process.env.PORT ?? 3000;

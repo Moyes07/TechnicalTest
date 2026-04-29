@@ -10,22 +10,27 @@ export class OrdersRepository {
     return `order-${this.counter++}`;
   }
 
-  save(order: Order): Order {
+  async save(order: Order): Promise<Order> {
     this.store.set(order.id, { ...order });
-    return this.store.get(order.id)!;
+    return Promise.resolve(this.store.get(order.id)!);
   }
 
-  findById(id: string): Order | undefined {
-    return this.store.get(id);
+  async findById(id: string): Promise<Order | undefined> {
+    return Promise.resolve(this.store.get(id));
   }
 
-  findAll(): Order[] {
-    return Array.from(this.store.values()).sort(
-      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+  async findAll(): Promise<Order[]> {
+    return Promise.resolve(
+      Array.from(this.store.values()).sort(
+        (item1, item2) =>
+          new Date(item2.createdAt).getTime() -
+          new Date(item1.createdAt).getTime(),
+      ),
     );
   }
 
-  findByStudentId(studentId: string): Order[] {
-    return this.findAll().filter((o) => o.studentId === studentId);
+  async findByStudentId(studentId: string): Promise<Order[]> {
+    const orders = await this.findAll();
+    return orders.filter((order) => order.studentId === studentId);
   }
 }

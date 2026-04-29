@@ -1,18 +1,21 @@
 import { Injectable, HttpStatus } from '@nestjs/common';
 import { ParentsRepository } from './parents.repository';
 import { Parent } from './parent.entity';
-import { BusinessException, ErrorCodes } from '../common/filters/http-exception.filter';
+import {
+  BusinessException,
+  ErrorCodes,
+} from '../common/filters/http-exception.filter';
 
 @Injectable()
 export class ParentsService {
   constructor(private readonly repo: ParentsRepository) {}
 
-  findAll(): Parent[] {
+  async findAll(): Promise<Parent[]> {
     return this.repo.findAll();
   }
 
-  findById(id: string): Parent {
-    const parent = this.repo.findById(id);
+  async findById(id: string): Promise<Parent> {
+    const parent = await this.repo.findById(id);
     if (!parent) {
       throw new BusinessException(
         ErrorCodes.PARENT_NOT_FOUND,
@@ -23,18 +26,13 @@ export class ParentsService {
     return parent;
   }
 
-  /**
-   * Deducts amount from parent wallet.
-   * Called by OrdersService inside what would be a DB transaction.
-   * Returns the updated parent for the caller's confirmation.
-   */
-  deductWalletBalance(parentId: string, amount: number): Parent {
-    const parent = this.findById(parentId);
+  async deductWalletBalance(parentId: string, amount: number): Promise<Parent> {
+    const parent = await this.findById(parentId);
 
     if (parent.walletBalance < amount) {
       throw new BusinessException(
         ErrorCodes.INSUFFICIENT_BALANCE,
-        `Insufficient wallet balance. Required: £${amount.toFixed(2)}, Available: £${parent.walletBalance.toFixed(2)}`,
+        `Insufficient wallet balance. Required: Rs.${amount.toFixed(2)}, Available: Rs.${parent.walletBalance.toFixed(2)}`,
         HttpStatus.PAYMENT_REQUIRED,
       );
     }

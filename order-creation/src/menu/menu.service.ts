@@ -1,18 +1,21 @@
 import { Injectable, HttpStatus } from '@nestjs/common';
 import { MenuRepository } from './menu.repository';
 import { MenuItem } from './menu-item.entity';
-import { BusinessException, ErrorCodes } from '../common/filters/http-exception.filter';
+import {
+  BusinessException,
+  ErrorCodes,
+} from '../common/filters/http-exception.filter';
 
 @Injectable()
 export class MenuService {
   constructor(private readonly repo: MenuRepository) {}
 
-  findAll(): MenuItem[] {
+  async findAll(): Promise<MenuItem[]> {
     return this.repo.findAll();
   }
 
-  findById(id: string): MenuItem {
-    const item = this.repo.findById(id);
+  async findById(id: string): Promise<MenuItem> {
+    const item = await this.repo.findById(id);
     if (!item) {
       throw new BusinessException(
         ErrorCodes.MENU_ITEM_NOT_FOUND,
@@ -23,11 +26,7 @@ export class MenuService {
     return item;
   }
 
-  /**
-   * Resolve multiple menu items by ID in one call.
-   * Fails fast with NOT_FOUND if any item is missing.
-   */
-  findManyById(ids: string[]): MenuItem[] {
-    return ids.map((id) => this.findById(id));
+  async findManyById(ids: string[]): Promise<MenuItem[]> {
+    return Promise.all(ids.map((id) => this.findById(id)));
   }
 }

@@ -8,16 +8,14 @@
 
 ### Install & Run
 
-```bash
 # Install dependencies
-npm install
+npm install or npm i
 
-# Start in development mode (hot-reload)
+# Running backend (nestjs)
 npm run start:dev
 
-# OR build and run in production mode
-npm run build && npm run start:prod
-```
+# Running frontend (reactjs)
+npm run dev
 
 The API will be available at **http://localhost:3000/**
 
@@ -55,8 +53,8 @@ The API will be available at **http://localhost:3000/**
 
 The application starts with the following in-memory data:
 
-**Parent:** `parent-1` — Sara John (wallet: £50.00)  
-**Student:** `student-1` — Sam John (allergens: `nuts`) — linked to `parent-1`  
+**Parent:** `parent1` — Sara John (wallet: £50.00)  
+**Student:** `student1` — Sam John (allergens: `nuts`) — linked to `parent1`  
 **Menu Items:**
 | ID | Name | Price | Allergens | Available |
 |----|------|-------|-----------|-----------|
@@ -72,7 +70,7 @@ The application starts with the following in-memory data:
 ## Key Design Decisions & Trade-offs
 
 ### 1. Module-per-domain structure
-Each domain (Parents, Students, Menu, Orders) is a self-contained NestJS module with its own entity, repository, service, and controller. This makes each domain independently testable and replaceable (e.g. swapping an in-memory repository for a TypeORM one requires touching only the repository file and the module's provider registration).
+Each domain (Parents, Students, Menu, Orders) is a self-contained NestJS module with its own entity, repository, service, and controller. This makes each domain independently testable and replaceable.
 
 ### 2. BusinessException + unified error filter
 Rather than throwing raw `HttpException` instances from services, a typed `BusinessException` carries a semantic `ErrorCode` enum value. The global `HttpExceptionFilter` formats *all* errors — business errors, NestJS validation errors, and unexpected errors — into the same JSON shape: `{ code, message, statusCode, path, timestamp }`. This means the frontend has a single contract to program against.
@@ -89,6 +87,8 @@ Each domain service is injected with a repository class that wraps a `Map`. This
 1. **Currency**: Prices and balances are treated as PKR floats. `parseFloat(...toFixed(2))` keeps rounding deterministic for in-memory use. In production, monetary values would be stored as integer pence to avoid floating-point drift.
 
 2. **Authentication**: No auth layer is included. In production, requests would carry a JWT and the parent would be derived from the token, not the student's `parentId` field.
+
+3. **Env file commit**: For ease of runnning and testing the code i have pushed the .env file to the repository.
 
 ---
 

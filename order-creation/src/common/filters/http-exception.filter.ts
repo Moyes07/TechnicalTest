@@ -22,6 +22,11 @@ export const ErrorCodes = {
 
 export type ErrorCode = (typeof ErrorCodes)[keyof typeof ErrorCodes];
 
+type ErrorResponseBody = {
+  message?: unknown;
+  code?: unknown;
+};
+
 export class BusinessException extends Error {
   constructor(
     public readonly code: ErrorCode,
@@ -33,41 +38,79 @@ export class BusinessException extends Error {
   }
 }
 
+function isObjectRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
+
+function normalizeErrorMessage(
+  messageValue: unknown,
+  fallbackMessage: string,
+): string {
+  if (Array.isArray(messageValue)) {
+    const stringMessages = messageValue.filter(
+      (messageEntry): messageEntry is string =>
+        typeof messageEntry === 'string',
+    );
+    return stringMessages.length > 0
+      ? stringMessages.join('; ')
+      : fallbackMessage;
+  }
+
+  if (typeof messageValue === 'string') {
+    return messageValue;
+  }
+
+  return fallbackMessage;
+}
+
+function normalizeErrorCode(codeValue: unknown, fallbackCode: string): string {
+  return typeof codeValue === 'string' ? codeValue : fallbackCode;
+}
+
 @Catch()
 export class HttpExceptionFilter implements ExceptionFilter {
   private readonly logger = new Logger(HttpExceptionFilter.name);
 
-  catch(exception: unknown, host: ArgumentsHost) {
-    const ctx = host.switchToHttp();
-    const response = ctx.getResponse<Response>();
-    const request = ctx.getRequest<Request>();
+  catch(exception: unknown, host: ArgumentsHost): void {
+    const httpContext = host.switchToHttp();
+    const response = httpContext.getResponse<Response>();
+    const request = httpContext.getRequest<Request>();
 
     let statusCode = HttpStatus.INTERNAL_SERVER_ERROR;
-    let code: string = ErrorCodes.INTERNAL_ERROR;
-    let message = 'An unexpected error occurred';
+    let errorCode: string = ErrorCodes.INTERNAL_ERROR;
+    let errorMessage = 'An unexpected error occurred';
 
     if (exception instanceof BusinessException) {
       statusCode = exception.statusCode;
-      code = exception.code;
-      message = exception.message;
+      errorCode = exception.code;
+      errorMessage = exception.message;
     } else if (exception instanceof HttpException) {
       statusCode = exception.getStatus();
-      const body = exception.getResponse();
-      if (typeof body === 'object' && body !== null) {
-        const b = body as any;
-        message = Array.isArray(b.message) ? b.message.join('; ') : (b.message ?? message);
-        code = b.code ?? ErrorCodes.INVALID_REQUEST;
+      const exceptionResponse = exception.getResponse();
+
+      if (isObjectRecord(exceptionResponse)) {
+        const typedResponseBody = exceptionResponse as ErrorResponseBody;
+        errorMessage = normalizeErrorMessage(
+          typedResponseBody.message,
+          errorMessage,
+        );
+        errorCode = normalizeErrorCode(
+          typedResponseBody.code,
+          ErrorCodes.INVALID_REQUEST,
+        );
+      } else if (typeof exceptionResponse === 'string') {
+        errorMessage = exceptionResponse;
+        errorCode = ErrorCodes.INVALID_REQUEST;
       } else {
-        message = String(body);
-        code = ErrorCodes.INVALID_REQUEST;
+        errorCode = ErrorCodes.INVALID_REQUEST;
       }
     } else {
       this.logger.error('Unhandled exception', exception);
     }
 
     response.status(statusCode).json({
-      code,
-      message,
+      code: errorCode,
+      message: errorMessage,
       statusCode,
       path: request.url,
       timestamp: new Date().toISOString(),

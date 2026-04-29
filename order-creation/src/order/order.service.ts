@@ -6,7 +6,10 @@ import { MenuService } from '../menu/menu.service';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { Order, OrderItem } from './order.entity';
 import { MenuItem } from '../menu/menu-item.entity';
-import { BusinessException, ErrorCodes } from '../common/filters/http-exception.filter';
+import {
+  BusinessException,
+  ErrorCodes,
+} from '../common/filters/http-exception.filter';
 
 @Injectable()
 export class OrdersService {
@@ -17,12 +20,12 @@ export class OrdersService {
     private readonly menuService: MenuService,
   ) {}
 
-  findAll(): Order[] {
+  async findAll(): Promise<Order[]> {
     return this.repo.findAll();
   }
 
-  findById(id: string): Order {
-    const order = this.repo.findById(id);
+  async findById(id: string): Promise<Order> {
+    const order = await this.repo.findById(id);
     if (!order) {
       throw new BusinessException(
         ErrorCodes.ORDER_NOT_FOUND,
@@ -33,98 +36,130 @@ export class OrdersService {
     return order;
   }
 
-  /**
-   * Creates an order after applying all business-rule guards:
-   *
-   *   1. Resolve entities — student, parent, menu items (throws 404 on missing)
-   *   2. Availability check  — any unavailable item → ITEM_UNAVAILABLE
-   *   3. Allergen check      — any allergen overlap  → ALLERGEN_CONFLICT
-   *   4. Balance check       — parent balance < total → INSUFFICIENT_BALANCE
-   *   5. Wallet deduction    — update parent balance
-   *   6. Persist order
-   *
-   * Transaction semantics (in-memory):
-   *   Node.js is single-threaded; steps 5 and 6 execute synchronously with no
-   *   await between them, so there is no observable intermediate state within
-   *   a single process. In a real Postgres-backed system you would wrap steps
-   *   5 and 6 in a BEGIN / COMMIT block (or a TypeORM QueryRunner) so that a
-   *   crash between the two steps can never leave the wallet debited without
-   *   an order record — or an order record without a corresponding debit.
-   */
-  createOrder(dto: CreateOrderDto): Order {
-    // ── 1. Resolve entities ───────────────────────────────────────────────
-    const student = this.studentsService.findById(dto.studentId);
-    const parent = this.parentsService.findById(student.parentId);
-    const uniqueItemIds = [...new Set(dto.items.map((i) => i.menuItemId))];
-    const menuItemMap = new Map<string, MenuItem>(
-      uniqueItemIds.map((id) => [id, this.menuService.findById(id)]),
+  async createOrder(dto: CreateOrderDto): Promise<Order> {
+    const student = await this.studentsService.findById(dto.studentId);
+    const parent = await this.parentsService.findById(student.parentId);
+
+    const menuItemMap = await this.getMenuItemMap(dto);
+
+    this.validateItemAvailability(dto, menuItemMap);
+    this.validateAllergenConflicts(
+      dto,
+      menuItemMap,
+      student.allergens,
+      student.name,
     );
 
-    // ── 2. Availability check ─────────────────────────────────────────────
-    const unavailableItems = dto.items.filter(
-      (i) => !menuItemMap.get(i.menuItemId)!.available,
-    );
+    const orderItems = this.buildOrderItems(dto, menuItemMap);
+    const total = this.calculateOrderTotal(orderItems);
+
+    await this.parentsService.deductWalletBalance(parent.id, total);
+
+    const order = this.buildOrder(student.id, parent.id, orderItems, total);
+    return this.repo.save(order);
+  }
+
+  private async getMenuItemMap(
+    dto: CreateOrderDto,
+  ): Promise<Map<string, MenuItem>> {
+    const uniqueItemIds = [
+      ...new Set(dto.items.map((item) => item.menuItemId)),
+    ];
+    const menuItems = await this.menuService.findManyById(uniqueItemIds);
+    return new Map<string, MenuItem>(menuItems.map((item) => [item.id, item]));
+  }
+
+  private validateItemAvailability(
+    dto: CreateOrderDto,
+    menuItemMap: Map<string, MenuItem>,
+  ): void {
+    const unavailableItems = dto.items
+      .map((items) => menuItemMap.get(items.menuItemId))
+      .filter((item): item is MenuItem => !!item && !item.available);
+
     if (unavailableItems.length > 0) {
-      const names = unavailableItems
-        .map((i) => menuItemMap.get(i.menuItemId)!.name)
-        .join(', ');
+      const names = unavailableItems.map((item) => item.name).join(', ');
       throw new BusinessException(
         ErrorCodes.ITEM_UNAVAILABLE,
         `The following item(s) are currently unavailable: ${names}`,
         HttpStatus.UNPROCESSABLE_ENTITY,
       );
     }
+  }
 
-    // ── 3. Allergen check ─────────────────────────────────────────────────
+  private validateAllergenConflicts(
+    dto: CreateOrderDto,
+    menuItemMap: Map<string, MenuItem>,
+    studentAllergenList: string[],
+    studentName: string,
+  ): void {
     const studentAllergens = new Set(
-      student.allergens.map((a) => a.toLowerCase()),
+      studentAllergenList.map((allergen) => allergen.toLowerCase()),
     );
 
-    for (const orderItem of dto.items) {
-      const menuItem = menuItemMap.get(orderItem.menuItemId)!;
-      const conflicts = menuItem.allergens.filter((a) =>
-        studentAllergens.has(a.toLowerCase()),
+    for (const dtoItem of dto.items) {
+      const menuItem = menuItemMap.get(dtoItem.menuItemId);
+      if (!menuItem) continue;
+
+      const conflicts = menuItem.allergens.filter((allergen) =>
+        studentAllergens.has(allergen.toLowerCase()),
       );
+
       if (conflicts.length > 0) {
         throw new BusinessException(
           ErrorCodes.ALLERGEN_CONFLICT,
-          `"${menuItem.name}" contains allergen(s) [${conflicts.join(', ')}] that conflict with ${student.name}'s dietary requirements`,
+          `"${menuItem.name}" contains allergen(s) [${conflicts.join(', ')}] that conflict with ${studentName}'s dietary requirements`,
           HttpStatus.UNPROCESSABLE_ENTITY,
         );
       }
     }
+  }
 
-    // ── 4. Calculate total ────────────────────────────────────────────────
-    const orderItems: OrderItem[] = dto.items.map((i) => {
-      const menuItem = menuItemMap.get(i.menuItemId)!;
-      const lineTotal = parseFloat((menuItem.price * i.quantity).toFixed(2));
-      return {
-        menuItemId: menuItem.id,
-        menuItemName: menuItem.name,
-        quantity: i.quantity,
-        unitPrice: menuItem.price,
-        lineTotal,
-      };
-    });
+  private buildOrderItems(
+    dto: CreateOrderDto,
+    menuItemMap: Map<string, MenuItem>,
+  ): OrderItem[] {
+    return dto.items
+      .map((item) => {
+        const menuItem = menuItemMap.get(item.menuItemId);
+        if (!menuItem) return null;
 
-    const total = parseFloat(
-      orderItems.reduce((sum, i) => sum + i.lineTotal, 0).toFixed(2),
+        const lineTotal = this.roundToTwo(menuItem.price * item.quantity);
+        return {
+          menuItemId: menuItem.id,
+          menuItemName: menuItem.name,
+          quantity: item.quantity,
+          unitPrice: menuItem.price,
+          lineTotal,
+        } satisfies OrderItem;
+      })
+      .filter((item): item is OrderItem => !!item);
+  }
+
+  private calculateOrderTotal(orderItems: OrderItem[]): number {
+    return this.roundToTwo(
+      orderItems.reduce((sum, item) => sum + item.lineTotal, 0),
     );
+  }
 
-    // ── 5. Balance check is inside deductWalletBalance (throws if fails) ──
-    // ── 5 + 6. Deduct wallet then persist (atomic in single-threaded JS) ──
-    this.parentsService.deductWalletBalance(parent.id, total);
-
-    const order: Order = {
+  private buildOrder(
+    studentId: string,
+    parentId: string,
+    items: OrderItem[],
+    total: number,
+  ): Order {
+    return {
       id: this.repo.generateId(),
-      studentId: student.id,
-      parentId: parent.id,
-      items: orderItems,
+      studentId,
+      parentId,
+      items,
       total,
       status: 'CONFIRMED',
       createdAt: new Date().toISOString(),
     };
+  }
 
-    return this.repo.save(order);
+  private roundToTwo(value: number): number {
+    return Number(value.toFixed(2));
   }
 }

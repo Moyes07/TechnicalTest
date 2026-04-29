@@ -1,5 +1,6 @@
 import { Controller, Get, Param } from '@nestjs/common';
 import { MenuService } from './menu.service';
+import { MenuDto } from './dto/menu.dto';
 
 @Controller('menu')
 export class MenuController {
@@ -11,7 +12,7 @@ export class MenuController {
   }
 
   @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.service.findById(id);
+  findOne(@Param() params: MenuDto) {
+    return this.service.findById(params.id);
   }
 }
