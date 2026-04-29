@@ -23,47 +23,69 @@ The API will be available at **http://localhost:3000/**
 ## API Endpoints
 
 ### Parents
-| Method | Path | Description |
-|--------|------|-------------|
-| GET | `/parents` | List all parents |
-| GET | `/parents/:id` | Get parent by ID |
+GET /parents
+Returns a list of all parents
+
+GET /parents/:id
+Returns a specific parent by ID
 
 ### Students
-| Method | Path | Description |
-|--------|------|-------------|
-| GET | `/students` | List all students |
-| GET | `/students/:id` | Get student by ID |
+GET /students
+Returns a list of all students
+
+GET /students/:id
+Returns a specific student by ID
 
 ### Menu
-| Method | Path | Description |
-|--------|------|-------------|
-| GET | `/menu` | List all menu items |
-| GET | `/menu/:id` | Get menu item by ID |
+GET /menu
+Returns a list of all menu items
+
+GET /menu/:id
+Returns a specific menu item by ID
 
 ### Orders
-| Method | Path | Description |
-|--------|------|-------------|
-| GET | `/orders` | List all orders |
-| GET | `/orders/:id` | Get order by ID |
-| POST | `/orders` | Create a new order |
+GET /orders
+Returns a list of all orders
 
----
+GET /orders/:id
+Returns a specific order by ID
+
+POST /orders
+Creates a new order
 
 ## Seeded Data
+Parent:
+parent1 — Sara John (wallet balance: £50.00)
 
-The application starts with the following in-memory data:
+Student:
+student1 — Sam John
+Allergens: nuts
+Linked to parent1
 
-**Parent:** `parent1` — Sara John (wallet: £50.00)  
-**Student:** `student1` — Sam John (allergens: `nuts`) — linked to `parent1`  
-**Menu Items:**
-| ID | Name | Price | Allergens | Available |
-|----|------|-------|-----------|-----------|
-| `item-1` | Peanut Butter Cookie | £1.50 | nuts, gluten | ✅ |
-| `item-2` | Fresh Apple Juice | £2.00 | none | ✅ |
-| `item-3` | Cheese Sandwich | £3.50 | gluten, dairy | ✅ |
-| `item-4` | Seasonal Soup | £4.00 | none | ❌ (unavailable) |
+Menu Items:
+item-1
+Name: Peanut Butter Cookie
+Price: £1.50
+Allergens: nuts, gluten
+Available: yes
 
----
+item-2
+Name: Fresh Apple Juice
+Price: £2.00
+Allergens: none
+Available: yes
+
+item-3
+Name: Cheese Sandwich
+Price: £3.50
+Allergens: gluten, dairy
+Available: yes
+
+item-4
+Name: Seasonal Soup
+Price: £4.00
+Allergens: none
+Available: no
 
 
 
@@ -73,20 +95,17 @@ The application starts with the following in-memory data:
 Each domain (Parents, Students, Menu, Orders) is a self-contained NestJS module with its own entity, repository, service, and controller. This makes each domain independently testable and replaceable.
 
 ### 2. BusinessException + unified error filter
-Rather than throwing raw `HttpException` instances from services, a typed `BusinessException` carries a semantic `ErrorCode` enum value. The global `HttpExceptionFilter` formats *all* errors — business errors, NestJS validation errors, and unexpected errors — into the same JSON shape: `{ code, message, statusCode, path, timestamp }`. This means the frontend has a single contract to program against.
+Instead of throwing raw HttpException objects directly from services, a custom BusinessException is used that carries a semantic ErrorCode enum to make errors more meaningful and structured; a global HttpExceptionFilter then catches all types of errors, whether they are business logic errors, NestJS validation issues, or unexpected runtime failures, and formats them into a consistent JSON response with the shape { code, message, statusCode, path, timestamp }, allowing the frontend to rely on a single, predictable error handling contract across the entire application.
 
 ### 3. Repository pattern with in-memory Maps
-Each domain service is injected with a repository class that wraps a `Map`. This keeps the service logic ignorant of the storage layer. Migrating to Postgres means writing a `TypeOrmParentsRepository` that implements the same interface and swapping the provider in the module — no service code changes required.
-
-
----
+Each domain service is injected with a repository class that wraps a Map, which keeps the service logic independent of the underlying storage layer; this means that switching to something like Postgres is straightforward, as you only need to create a TypeOrmParentsRepository that follows the same interface and replace the provider in the module, without making any changes to the service code.
 
 
 ## Assumptions
 
-1. **Currency**: Prices and balances are treated as PKR floats. `parseFloat(...toFixed(2))` keeps rounding deterministic for in-memory use. In production, monetary values would be stored as integer pence to avoid floating-point drift.
+1. **Currency**: Prices and balances are treated as PKR floats, and using parseFloat with toFixed(2) helps keep rounding consistent for in memory calculations; however, in a production environment, monetary values would typically be stored as integer pence or the smallest currency unit to avoid floating point precision issues.
 
-2. **Authentication**: No auth layer is included. In production, requests would carry a JWT and the parent would be derived from the token, not the student's `parentId` field.
+2. **Authentication**: No authentication layer is included in this setup, but in a production environment requests would include a JWT, and the parent information would be extracted from the token rather than relying on the student's parentId field.
 
 3. **Env file commit**: For ease of runnning and testing the code i have pushed the .env file to the repository.
 
