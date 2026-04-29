@@ -55,7 +55,7 @@ Creates a new order
 
 ## Seeded Data
 Parent:
-parent1 — Sara John (wallet balance: £50.00)
+parent1 — Sara John (wallet balance: Rs. 50.00)
 
 Student:
 student1 — Sam John
@@ -65,25 +65,25 @@ Linked to parent1
 Menu Items:
 item-1
 Name: Peanut Butter Cookie
-Price: £1.50
+Price: Rs. 1.50
 Allergens: nuts, gluten
 Available: yes
 
 item-2
 Name: Fresh Apple Juice
-Price: £2.00
+Price: Rs. 2.00
 Allergens: none
 Available: yes
 
 item-3
 Name: Cheese Sandwich
-Price: £3.50
+Price: Rs. 3.50
 Allergens: gluten, dairy
 Available: yes
 
 item-4
 Name: Seasonal Soup
-Price: £4.00
+Price: Rs.4.00
 Allergens: none
 Available: no
 
