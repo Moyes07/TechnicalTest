@@ -42,7 +42,7 @@ export const useDashboardData = () => {
   }, []);
 
   useEffect(() => {
-    fetchData();
+    Promise.resolve(fetchData)();
   }, [fetchData]);
 
   const activeStudent = selectedStudentId 
